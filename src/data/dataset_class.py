@@ -5,17 +5,14 @@ from PIL import Image
 from torchvision import tv_tensors
 
 class SegmentationDataset(Dataset):
-    def __init__(self, images_dir, masks_dir, spatial_transform=None, normalize=None):
+    def __init__(self, images_dir, masks_dir, filenames, spatial_transform=None, normalize=None):
         self.images_dir = images_dir
         self.masks_dir = masks_dir
         
         self.spatial_transform = spatial_transform
         self.normalize = normalize
         
-        # Filter out unpaired files
-        all_images = set(os.listdir(images_dir))
-        all_masks = set(os.listdir(masks_dir))
-        self.image_filenames = sorted(all_images & all_masks)
+        self.image_filenames = filenames
 
     def __len__(self):
         return len(self.image_filenames)

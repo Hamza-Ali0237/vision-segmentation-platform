@@ -1,0 +1,38 @@
+project:
+  name: "cxr-segmentation-v1"
+  seed: 42
+  experiment_tracker: "mlflow"
+
+paths:
+  # SageMaker automatically mounts S3 data to these /opt/ml/ directories during training
+  data_dir: "/opt/ml/input/data/training" 
+  model_dir: "/opt/ml/model"
+  output_dir: "/opt/ml/output"
+
+data:
+  image_size: 256
+  in_channels: 3
+  num_workers: 4
+  apply_clahe: true
+
+model:
+  architecture: "unet"
+  num_classes: 1
+
+training:
+  epochs: 100
+  batch_size: 1
+  learning_rate: 1e-4
+  loss_function: "dice_bce"
+  
+  lr_patience: 10
+  lr_factor: 0.1
+
+  metrics:
+    - "dice_score"
+    - "miou"
+
+augmentation:
+  apply: true
+  rotate_limit: 10
+  scale_limit: 0.1

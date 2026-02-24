@@ -1,38 +1,47 @@
+import os
 import torch
 from torch.utils.data import Dataset
-
-import os
 from PIL import Image
+from torchvision import tv_tensors
 
 class SegmentationDataset(Dataset):
-    def __init__(self, images_dir, masks_dir, image_transform=None, mask_transform=None):
+    def __init__(self, images_dir, masks_dir, spatial_transform=None, normalize=None):
         self.images_dir = images_dir
         self.masks_dir = masks_dir
-        self.image_transform = image_transform
-        self.mask_transform = mask_transform
         
-        # Filter out unpaired images and masks
+        self.spatial_transform = spatial_transform
+        self.normalize = normalize
+        
+        # Filter out unpaired files
         all_images = set(os.listdir(images_dir))
         all_masks = set(os.listdir(masks_dir))
-        paired_files = sorted(all_images & all_masks)
-        self.image_filenames = paired_files
+        self.image_filenames = sorted(all_images & all_masks)
 
     def __len__(self):
         return len(self.image_filenames)
     
     def __getitem__(self, index):
-        image_dir = os.path.join(self.images_dir, self.image_filenames[index])
-        mask_dir = os.path.join(self.masks_dir, self.image_filenames[index])
+        image_path = os.path.join(self.images_dir, self.image_filenames[index])
+        mask_path = os.path.join(self.masks_dir, self.image_filenames[index])
 
-        image = Image.open(image_dir).convert("RGB")
-        mask = Image.open(mask_dir).convert("L")
+        image = Image.open(image_path).convert("RGB")
+        mask = Image.open(mask_path).convert("L")
 
-        if self.image_transform:
-            image = self.image_transform(image)
-        if self.mask_transform:
-            mask = self.mask_transform(mask)
+        # Wrapping image and mask so v2 transforms know how to treat them
+        image = tv_tensors.Image(image)
+        mask = tv_tensors.Mask(mask)
 
-        mask = mask.squeeze(0)
-        mask = torch.where(mask > 0, 1, 0).float()
+        # Applying spatial transforms to both simultaneously
+        if self.spatial_transform:
+            image, mask = self.spatial_transform(image, mask)
+
+        # Apply color normalization to the image only
+        if self.normalize:
+            image = self.normalize(image)
+
+        # Ensure strict binary format (0.0 or 1.0) and float32 dtype for the loss function
+        mask = (mask > 0).to(torch.float32)
+        
+        # mask = mask.squeeze(0) # [Batch, Height, Width]
 
         return image, mask

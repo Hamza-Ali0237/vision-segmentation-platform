@@ -9,6 +9,6 @@ def get_metrics(num_classes: int, device):
         "miou": torchmetrics.segmentation.MeanIoU(
             num_classes, include_background=True, per_class=False, input_format="one_hot"
         )
-    })
+    }).to(device)
 
     return metrics

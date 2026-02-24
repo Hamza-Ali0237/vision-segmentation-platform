@@ -1,7 +1,7 @@
 from torchvision.transforms import v2
 import torch
 
-def get_transforms(config):
+def get_transforms(config, is_train=True):
     img_size = config['data']["image_size"]
     rot_limit = config['augmentation']['rotate_limit']
     apply_aug = config['augmentation']['apply']
@@ -13,7 +13,7 @@ def get_transforms(config):
         v2.ToDtype(torch.float32, scale=True)
     ]
 
-    if apply_aug:
+    if apply_aug and is_train:
         # Insert spatial augmentations BEFORE converting to tensor
         spatial_aug = [
             v2.RandomHorizontalFlip(p=0.5),

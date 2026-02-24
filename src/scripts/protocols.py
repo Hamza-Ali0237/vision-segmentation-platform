@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from loss import DiceBCELoss
 
-def training_setup(model, lr=1e-4, weight_decay=1e-4):
+def training_setup(model, lr=1e-4, weight_decay=1e-4, factor=0.1, patience=5):
     criterion = DiceBCELoss()  
 
     optimizer = optim.AdamW(
@@ -11,7 +11,7 @@ def training_setup(model, lr=1e-4, weight_decay=1e-4):
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.1, patience=5
+        optimizer, mode='min', factor=factor, patience=patience
     )
 
     return criterion, optimizer, scheduler

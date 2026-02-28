@@ -14,17 +14,24 @@ def get_loader(config, images_dir, masks_dir):
     paired_filenames = sorted(list(all_images & all_masks))
 
     # Splitting the filenames before creating the datasets
-    train_files, val_files = train_test_split(
+    train_files, val_test_files = train_test_split(
         paired_filenames,
         test_size=0.2,
         random_state=config["project"]["seed"]
     )
 
+    val_files, test_files = train_test_split(
+        val_test_files,
+        test_size=0.5,
+        random_state=config["project"]["seed"]
+    )
+
     train_transforms, normalize = get_transforms(config, is_train=True)
-    val_transforms, _ = get_transforms(config, is_train=False)
+    val_test_transforms, _ = get_transforms(config, is_train=False)
 
     train_dataset = SegmentationDataset(images_dir, masks_dir, train_files, train_transforms, normalize)
-    val_dataset = SegmentationDataset(images_dir, masks_dir, val_files, val_transforms, normalize)
+    val_dataset = SegmentationDataset(images_dir, masks_dir, val_files, val_test_transforms, normalize)
+    test_dataset = SegmentationDataset(images_dir, masks_dir, test_files, val_test_transforms, normalize)
 
     train_loader = DataLoader(
         train_dataset,
@@ -40,4 +47,11 @@ def get_loader(config, images_dir, masks_dir):
         num_workers=config['data']['num_workers'],
     )
 
-    return train_loader, val_loader
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=config["training"]["batch_size"],
+        shuffle=False,
+        num_workers=config['data']['num_workers'],
+    )
+
+    return train_loader, val_loader, test_loader

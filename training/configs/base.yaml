@@ -16,7 +16,7 @@ data:
   apply_clahe: true
 
 model:
-  architecture: "unet"
+  architectures: ["unet", "segnet"]
   num_classes: 1
 
 training:

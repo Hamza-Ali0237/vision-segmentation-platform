@@ -1,9 +1,11 @@
+import os
+
 import torch
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
-from dataset_class import SegmentationDataset
-from augmentation import get_transforms
+from src.data.dataset_class import SegmentationDataset
+from src.data.augmentation import get_transforms
 
 import os
 

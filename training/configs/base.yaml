@@ -1,11 +1,10 @@
 project:
   name: "cxr-segmentation-v1"
   seed: 42
-  experiment_tracker: "mlflow"
 
 paths:
-  # SageMaker automatically mounts S3 data to these /opt/ml/ directories during training
-  data_dir: "/opt/ml/input/data/training" 
+  # SageMaker mounts S3 data here automatically during training jobs
+  data_dir: "/opt/ml/input/data/training"
   model_dir: "/opt/ml/model"
   output_dir: "/opt/ml/output"
 
@@ -13,21 +12,22 @@ data:
   image_size: 256
   in_channels: 3
   num_workers: 4
-  apply_clahe: true
 
 model:
   architectures: ["unet", "segnet"]
   num_classes: 1
 
 training:
-  epochs: 100
-  batch_size: 1
+  epochs: 50
+  batch_size: 8
   learning_rate: 1e-4
+  weight_decay: 1e-4
   loss_function: "dice_bce"
-  
+  weight_bce: 1.0
+  weight_dice: 1.0
   lr_patience: 10
   lr_factor: 0.1
-
+  early_stopping_patience: 15
   metrics:
     - "dice_score"
     - "miou"
@@ -35,4 +35,32 @@ training:
 augmentation:
   apply: true
   rotate_limit: 10
-  scale_limit: 0.1
+
+mlflow:
+  # Points to S3 — artifacts (checkpoints, configs) are stored there.
+  # The tracking URI uses a local SQLite file that gets synced to S3 at end of job.
+  # Set MLFLOW_TRACKING_URI env var to override (e.g. for a remote server later).
+  experiment_name: "cxr-segmentation"
+  artifact_location: "s3://YOUR_BUCKET_NAME/mlflow-artifacts"
+
+optuna:
+  n_trials: 20
+  direction: "minimize"   # minimise val_loss
+  pruning: true
+  search_space:
+    lr: [1e-5, 1e-3]
+    weight_decay: [1e-5, 1e-3]
+    weight_bce: [0.5, 2.0]
+    weight_dice: [0.5, 2.0]
+    batch_size: [4, 8, 16]
+    lr_patience: [5, 10, 15]
+
+aws:
+  region: "us-east-1"
+  bucket: "YOUR_BUCKET_NAME"
+  # IAM role ARN — paste yours here after creating it
+  role_arn: "arn:aws:iam::YOUR_ACCOUNT_ID:role/SageMakerExecutionRole"
+  instance_type: "ml.g4dn.xlarge"   # cheapest GPU on SageMaker
+  instance_count: 1
+  # ECR image — filled in after you push the Docker image
+  ecr_image_uri: "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/cxr-segmentation:latest"

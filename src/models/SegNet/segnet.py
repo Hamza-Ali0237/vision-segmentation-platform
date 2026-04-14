@@ -1,6 +1,6 @@
 import torch.nn as nn
-from encoder import Encoder
-from decoder import Decoder
+from src.models.SegNet.encoder import Encoder
+from src.models.SegNet.decoder import Decoder
 
 class SegNet(nn.Module):
     def __init__(self, num_classes):

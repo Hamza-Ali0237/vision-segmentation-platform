@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-from training.models.encoder import Encoder
-from decoder import Decoder
-from bottleneck import Bottleneck
+from src.models.UNet.encoder import Encoder
+from src.models.UNet.decoder import Decoder
+from src.models.UNet.bottleneck import Bottleneck
 
 class UNet(nn.Module):
     def __init__(self, in_channels=3, out_channels=1):

@@ -6,9 +6,9 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(512, 1024, kernel_size=3),
+            nn.Conv2d(512, 1024, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(1024, 1024, kernel_size=3),
+            nn.Conv2d(1024, 1024, kernel_size=3, padding=1),
             nn.ReLU(inplace=True)
         )
 

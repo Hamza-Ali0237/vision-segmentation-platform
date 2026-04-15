@@ -9,7 +9,7 @@ from src.data.augmentation import get_transforms
 
 import os
 
-def get_loader(config, images_dir, masks_dir):
+def get_loaders(config: dict, images_dir: str, masks_dir: str):
 
     all_images = set(os.listdir(images_dir))
     all_masks = set(os.listdir(masks_dir))

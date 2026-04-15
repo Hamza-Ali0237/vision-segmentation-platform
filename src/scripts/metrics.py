@@ -1,13 +1,14 @@
 import torch
 import torchmetrics
+from torchmetrics.segmentation import DiceScore, MeanIoU
 
 def get_metrics(num_classes: int, device: torch.device) -> torchmetrics.MetricCollection:
 
     metrics = torchmetrics.MetricCollection({
-        'dice_score': torchmetrics.segmentation.DiceScore(
+        'dice_score': DiceScore(
             num_classes, include_background=True, average="micro", input_format="one-hot"
         ),
-        "miou": torchmetrics.segmentation.MeanIoU(
+        "miou": MeanIoU(
             num_classes, include_background=True, per_class=False, input_format="one-hot"
         )
     }).to(device)

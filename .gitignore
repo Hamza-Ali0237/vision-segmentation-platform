@@ -1,6 +1,7 @@
 .DS_Store
 /.vscode
 README-DEV.md
+base.yaml
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc
@@ -189,3 +190,4 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+training/configs/base.yaml

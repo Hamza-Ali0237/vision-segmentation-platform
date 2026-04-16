@@ -1,0 +1,42 @@
+# -----------------------------------------------------------------------
+# FastAPI API Container — Vision Segmentation Platform
+#
+# This is a SEPARATE container from the training one (docker/Dockerfile).
+# It runs the FastAPI app that sits in front of the SageMaker endpoints.
+#
+# Build:
+#   docker build -f docker/Dockerfile.api -t vsp-api:latest .
+#
+# Run locally (for testing):
+#   docker run -p 8000:8000 \
+#     -e AWS_ACCESS_KEY_ID=... \
+#     -e AWS_SECRET_ACCESS_KEY=... \
+#     -e AWS_REGION=us-east-1 \
+#     vsp-api:latest
+# -----------------------------------------------------------------------
+
+FROM python:3.10-slim
+
+LABEL maintainer="vision-segmentation-platform"
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install only what the API needs — much lighter than the training image
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir -r requirements-api.txt
+
+# Copy only the api package and nothing else
+COPY api/ ./api/
+
+# Health check — hits the /health endpoint every 30s
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

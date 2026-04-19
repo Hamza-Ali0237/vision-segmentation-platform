@@ -231,7 +231,9 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
-    return parser.parse_args()
+    
+    args, _ = parser.parse_known_args()
+    return args
 
 
 def main():

@@ -228,9 +228,9 @@ def parse_args():
     parser.add_argument("--masks-dir", default=None,
                         help="Override config paths.data_dir/masks")
     # SageMaker passes hyperparameters as CLI args too
-    parser.add_argument("--epochs", type=int, default=None)
-    parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--epochs", type=str, default=None)
+    parser.add_argument("--batch-size", type=str, default=None)
+    parser.add_argument("--lr", type=str, default=None)
     
     args, _ = parser.parse_known_args()
     return args
@@ -244,11 +244,11 @@ def main():
 
     # SageMaker-style CLI overrides
     if args.epochs:
-        config["training"]["epochs"] = args.epochs
+        config["training"]["epochs"] = int(args.epochs)
     if args.batch_size:
-        config["training"]["batch_size"] = args.batch_size
+        config["training"]["batch_size"] = int(args.batch_size)
     if args.lr:
-        config["training"]["learning_rate"] = args.lr
+        config["training"]["learning_rate"] = float(args.lr)
 
     # Data paths: CLI > env var (SageMaker) > config
     data_root = config["paths"]["data_dir"]

@@ -19,6 +19,7 @@ import os
 import yaml
 import boto3
 import sagemaker
+from datetime import datetime
 from sagemaker.estimator import Estimator
 
 
@@ -43,7 +44,7 @@ def main():
     image = aws_cfg["ecr_image_uri"]
 
     session = sagemaker.Session(boto_session=boto3.Session(region_name=region))
-    job_name = f"cxr-seg-{args.arch}-train"
+    job_name = f"cxr-seg-{args.arch}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
     # S3 paths
     s3_data_uri = f"s3://{bucket}/data"

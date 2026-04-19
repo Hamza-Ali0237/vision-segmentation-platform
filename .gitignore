@@ -192,3 +192,4 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 training/configs/base.yaml
 model_unet.tar.gz
+model_unet_extracted/best_unet.pth

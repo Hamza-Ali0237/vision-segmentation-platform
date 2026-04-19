@@ -24,13 +24,13 @@ def training_setup(model: nn.Module, config: dict, override: dict = None):
     cfg = config["training"]
     override = override or {}
 
-    lr = override.get("lr", cfg["learning_rate"])
-    weight_decay = override.get("weight_decay", cfg["weight_decay"])
-    weight_bce = override.get("weight_bce", cfg.get("weight_bce", 1.0))
-    weight_dice = override.get("weight_dice", cfg.get("weight_dice", 1.0))
-    lr_factor = override.get("lr_factor", cfg["lr_factor"])
-    lr_patience = override.get("lr_patience", cfg["lr_patience"])
-
+    lr = float(override.get("lr", cfg["learning_rate"]))
+    weight_decay = float(override.get("weight_decay", cfg["weight_decay"]))
+    weight_bce = float(override.get("weight_bce", cfg.get("weight_bce", 1.0)))
+    weight_dice = float(override.get("weight_dice", cfg.get("weight_dice", 1.0)))
+    lr_factor = float(override.get("lr_factor", cfg["lr_factor"]))
+    lr_patience = int(override.get("lr_patience", cfg["lr_patience"]))
+    
     criterion = DiceBCELoss(weight_bce=weight_bce, weight_dice=weight_dice)
 
     optimizer = optim.AdamW(

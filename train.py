@@ -1,3 +1,26 @@
+"""
+Main training entrypoint — works both locally and as a SageMaker Training Job.
+
+SageMaker injects:
+  - data         → /opt/ml/input/data/training/
+  - model saves  → /opt/ml/model/
+  - output/logs  → /opt/ml/output/
+
+MLflow artifacts (checkpoints, config, visualisations) are uploaded to S3
+via the artifact_location in base.yaml.  The SQLite tracking DB is written
+locally then copied to S3 at the end of the run so you can inspect it later
+with `mlflow ui --backend-store-uri s3://bucket/mlflow-db/`.
+
+Usage (local):
+    python train.py --config training/configs/base.yaml \
+                    --arch unet \
+                    --images-dir data/images \
+                    --masks-dir  data/masks
+
+Usage (SageMaker): set via hyperparameters in aws/train_job.py — SageMaker
+passes them as CLI args automatically.
+"""
+
 import os
 import sys
 import argparse
@@ -51,14 +74,18 @@ def save_checkpoint(state: dict, path: str):
 # ---------------------------------------------------------------------------
 
 def run_training(
-    config,
-    arch,
-    images_dir,
-    masks_dir,
-    override=None, # Optuna injects hyperparams here
-    mlflow_run=None, # pass an active run when called from hpo.py
-):
-    
+    config: dict,
+    arch: str,
+    images_dir: str,
+    masks_dir: str,
+    override: dict = None,        # Optuna injects hyperparams here
+    mlflow_run=None,              # pass an active run when called from hpo.py
+) -> float:
+    """
+    Full training loop for one model.
+
+    Returns the best validation loss achieved (used by Optuna as objective).
+    """
     override = override or {}
     set_seed(config["project"]["seed"])
     device = get_device()
@@ -103,15 +130,15 @@ def run_training(
     with active_run if own_run else _noop():
         # Log all hyperparams
         mlflow.log_params({
-            "arch": arch,
-            "epochs": cfg["training"]["epochs"],
-            "batch_size": cfg["training"]["batch_size"],
-            "lr": cfg["training"]["learning_rate"],
-            "weight_decay": cfg["training"]["weight_decay"],
-            "weight_bce": cfg["training"].get("weight_bce", 1.0),
-            "weight_dice": cfg["training"].get("weight_dice", 1.0),
-            "image_size": cfg["data"]["image_size"],
-            "augmentation": cfg["augmentation"]["apply"],
+            "arch":          arch,
+            "epochs":        cfg["training"]["epochs"],
+            "batch_size":    cfg["training"]["batch_size"],
+            "lr":            cfg["training"]["learning_rate"],
+            "weight_decay":  cfg["training"]["weight_decay"],
+            "weight_bce":    cfg["training"].get("weight_bce", 1.0),
+            "weight_dice":   cfg["training"].get("weight_dice", 1.0),
+            "image_size":    cfg["data"]["image_size"],
+            "augmentation":  cfg["augmentation"]["apply"],
             **override,
         })
         mlflow.log_artifact("training/configs/base.yaml", artifact_path="config")
@@ -134,20 +161,20 @@ def run_training(
             # --- per-epoch MLflow metrics ---
             mlflow.log_metrics(
                 {
-                    "train_loss": train_loss,
-                    "val_loss": val_loss,
-                    "train_dice": train_metrics.get("dice_score", 0),
-                    "train_miou": train_metrics.get("miou", 0),
-                    "val_dice": val_metrics.get("dice_score", 0),
-                    "val_miou": val_metrics.get("miou", 0),
-                    "learning_rate": current_lr,
+                    "train_loss":       train_loss,
+                    "val_loss":         val_loss,
+                    "train_dice":       train_metrics.get("dice_score", 0),
+                    "train_miou":       train_metrics.get("miou", 0),
+                    "val_dice":         val_metrics.get("dice_score", 0),
+                    "val_miou":         val_metrics.get("miou", 0),
+                    "learning_rate":    current_lr,
                 },
                 step=epoch,
             )
 
             print(
                 f"Epoch [{epoch:3d}/{cfg['training']['epochs']}] "
-                f"train_loss={train_loss:.4f} | val_loss={val_loss:.4f}  "
+                f"train_loss={train_loss:.4f}  val_loss={val_loss:.4f}  "
                 f"val_dice={val_metrics.get('dice_score', 0):.4f}  "
                 f"val_miou={val_metrics.get('miou', 0):.4f}  "
                 f"lr={current_lr:.2e}"
@@ -159,13 +186,13 @@ def run_training(
                 patience_counter = 0
                 save_checkpoint(
                     {
-                        "epoch": epoch,
-                        "arch": arch,
+                        "epoch":            epoch,
+                        "arch":             arch,
                         "model_state_dict": model.state_dict(),
-                        "optimizer_state": optimizer.state_dict(),
-                        "val_loss": val_loss,
-                        "val_metrics": {k: float(v) for k, v in val_metrics.items()},
-                        "config": cfg,
+                        "optimizer_state":  optimizer.state_dict(),
+                        "val_loss":         val_loss,
+                        "val_metrics":      {k: float(v) for k, v in val_metrics.items()},
+                        "config":           cfg,
                     },
                     ckpt_path,
                 )
@@ -228,12 +255,10 @@ def parse_args():
     parser.add_argument("--masks-dir", default=None,
                         help="Override config paths.data_dir/masks")
     # SageMaker passes hyperparameters as CLI args too
-    parser.add_argument("--epochs", type=str, default=None)
-    parser.add_argument("--batch-size", type=str, default=None)
-    parser.add_argument("--lr", type=str, default=None)
-    
-    args, _ = parser.parse_known_args()
-    return args
+    parser.add_argument("--epochs", type=int,   default=None)
+    parser.add_argument("--batch-size", type=int,   default=None)
+    parser.add_argument("--lr", type=float, default=None)
+    return parser.parse_args()
 
 
 def main():
@@ -244,21 +269,21 @@ def main():
 
     # SageMaker-style CLI overrides
     if args.epochs:
-        config["training"]["epochs"] = int(args.epochs)
+        config["training"]["epochs"] = args.epochs
     if args.batch_size:
-        config["training"]["batch_size"] = int(args.batch_size)
+        config["training"]["batch_size"] = args.batch_size
     if args.lr:
-        config["training"]["learning_rate"] = float(args.lr)
+        config["training"]["learning_rate"] = args.lr
 
     # Data paths: CLI > env var (SageMaker) > config
-    data_root = config["paths"]["data_dir"]
+    data_root  = config["paths"]["data_dir"]
     images_dir = args.images_dir or os.environ.get("SM_CHANNEL_TRAINING",
                     os.path.join(data_root, "images"))
-    masks_dir = args.masks_dir or os.path.join(
+    masks_dir  = args.masks_dir  or os.path.join(
                     os.path.dirname(images_dir), "masks")
 
     # MLflow setup — use S3 artifact store, local SQLite tracking
-    mlflow_cfg = config.get("mlflow", {})
+    mlflow_cfg      = config.get("mlflow", {})
     artifact_location = mlflow_cfg.get("artifact_location", "")
     if artifact_location:
         mlflow.set_tracking_uri("sqlite:///mlflow.db")
@@ -269,9 +294,13 @@ def main():
         run_training(config, arch, images_dir, masks_dir)
 
     # If running inside SageMaker, copy mlflow.db to output dir so it's preserved
-    if os.path.exists("/opt/ml/output") and os.path.exists("mlflow.db"):
-        shutil.copy("mlflow.db", "/opt/ml/output/mlflow.db")
-        print("MLflow DB copied to /opt/ml/output/mlflow.db")
+    if os.path.exists("mlflow.db"):
+        if os.path.exists("/opt/ml/output"):
+            shutil.copy("mlflow.db", "/opt/ml/output/mlflow.db")
+            print("MLflow DB copied to /opt/ml/output/mlflow.db")
+        if os.path.exists("/opt/ml/model"):
+            shutil.copy("mlflow.db", "/opt/ml/model/mlflow.db")
+            print("MLflow DB copied to /opt/ml/model/mlflow.db")
 
 
 if __name__ == "__main__":

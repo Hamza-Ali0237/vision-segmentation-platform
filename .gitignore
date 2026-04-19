@@ -193,3 +193,4 @@ pyrightconfig.json
 training/configs/base.yaml
 model_unet.tar.gz
 model_unet_extracted/best_unet.pth
+/outputs

@@ -10,7 +10,9 @@ def validate_one_epoch(model, dataloader, criterion, metrics, device):
     with torch.no_grad():
         for images, masks in dataloader:
             images = images.to(device)
-            masks = masks.to(device).unsqueeze(1) # (B, 1, H, W)
+            masks = masks.to(device)
+            if masks.ndim == 3:
+                masks = masks.unsqueeze(1) # Add channel dim only if missing → (B, 1, H, W)
 
             outputs = model(images)
             loss = criterion(outputs, masks)

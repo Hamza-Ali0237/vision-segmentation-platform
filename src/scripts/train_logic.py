@@ -9,7 +9,10 @@ def train_one_epoch(model, dataloader, criterion, optimizer, metrics, device):
     metrics.reset()
 
     for images, masks in dataloader:
-        images, masks = images.to(device), masks.to(device).unsqueeze(1)  # Add channel dimension for masks (B, 1, H, W)
+        images = images.to(device)
+        masks = masks.to(device)
+        if masks.ndim == 3:
+            masks = masks.unsqueeze(1)  # Add channel dim only if missing → (B, 1, H, W)
 
         optimizer.zero_grad()
         outputs = model(images)

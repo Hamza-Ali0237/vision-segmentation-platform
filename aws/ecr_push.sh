@@ -29,7 +29,7 @@ aws ecr describe-repositories --repository-names "${REPO_NAME}" \
        --region "${REGION}"
 
 echo "==> Building Docker image..."
-docker build -f docker/Dockerfile -t "${REPO_NAME}:${TAG}" .
+docker buildx build --platform linux/amd64 -f docker/Dockerfile -t "${REPO_NAME}:${TAG}" --load .
 
 echo "==> Tagging image..."
 docker tag "${REPO_NAME}:${TAG}" "${IMAGE_URI}"

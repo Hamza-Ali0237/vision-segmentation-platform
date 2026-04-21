@@ -31,6 +31,7 @@ import torch
 import mlflow
 import numpy as np
 from pathlib import Path
+from contextlib import contextmanager
 
 # Allow running from repo root without installing the package
 sys.path.insert(0, str(Path(__file__).parent))
@@ -78,19 +79,13 @@ def run_training(
     arch: str,
     images_dir: str,
     masks_dir: str,
-    override: dict = None,        # Optuna injects hyperparams here
-    mlflow_run=None,              # pass an active run when called from hpo.py
+    override: dict = None,
+    mlflow_run=None,
 ) -> float:
-    """
-    Full training loop for one model.
-
-    Returns the best validation loss achieved (used by Optuna as objective).
-    """
     override = override or {}
     set_seed(config["project"]["seed"])
     device = get_device()
 
-    # Merge overrides into a working copy of config so we don't mutate original
     cfg = yaml.safe_load(yaml.dump(config))
     for k, v in override.items():
         if k in cfg["training"]:
@@ -103,21 +98,17 @@ def run_training(
     print(f"  LR           : {cfg['training']['learning_rate']}")
     print(f"{'='*60}\n")
 
-    # ---- Data ----------------------------------------------------------------
     train_loader, val_loader, test_loader = get_loaders(cfg, images_dir, masks_dir)
 
-    # ---- Model / optimiser ---------------------------------------------------
     model = build_model(arch, cfg).to(device)
     criterion, optimizer, scheduler = training_setup(model, cfg, override)
     metrics = get_metrics(cfg["model"]["num_classes"], device)
 
-    # ---- Paths ---------------------------------------------------------------
     model_dir  = cfg["paths"].get("model_dir",  "outputs/models")
     output_dir = cfg["paths"].get("output_dir", "outputs")
     ckpt_path  = os.path.join(model_dir, f"best_{arch}.pth")
     vis_dir    = os.path.join(output_dir, "visualisations", arch)
 
-    # ---- MLflow logging ------------------------------------------------------
     own_run = mlflow_run is None
     if own_run:
         mlflow_cfg = config.get("mlflow", {})
@@ -128,7 +119,6 @@ def run_training(
         active_run = mlflow_run
 
     with active_run if own_run else _noop():
-        # Log all hyperparams
         mlflow.log_params({
             "arch":          arch,
             "epochs":        cfg["training"]["epochs"],
@@ -158,16 +148,15 @@ def run_training(
 
             current_lr = optimizer.param_groups[0]["lr"]
 
-            # --- per-epoch MLflow metrics ---
             mlflow.log_metrics(
                 {
-                    "train_loss":       train_loss,
-                    "val_loss":         val_loss,
-                    "train_dice":       train_metrics.get("dice_score", 0),
-                    "train_miou":       train_metrics.get("miou", 0),
-                    "val_dice":         val_metrics.get("dice_score", 0),
-                    "val_miou":         val_metrics.get("miou", 0),
-                    "learning_rate":    current_lr,
+                    "train_loss":    train_loss,
+                    "val_loss":      val_loss,
+                    "train_dice":    train_metrics.get("dice_score", 0),
+                    "train_miou":    train_metrics.get("miou", 0),
+                    "val_dice":      val_metrics.get("dice_score", 0),
+                    "val_miou":      val_metrics.get("miou", 0),
+                    "learning_rate": current_lr,
                 },
                 step=epoch,
             )
@@ -180,7 +169,6 @@ def run_training(
                 f"lr={current_lr:.2e}"
             )
 
-            # --- checkpoint on improvement ---
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
@@ -203,16 +191,13 @@ def run_training(
                     print(f"Early stopping triggered after {epoch} epochs.")
                     break
 
-        # --- log best checkpoint as MLflow artifact ---
         if os.path.exists(ckpt_path):
             mlflow.log_artifact(ckpt_path, artifact_path="checkpoints")
 
-        # --- visualise predictions on val set ---
         vis_paths = save_predictions(model, val_loader, device, vis_dir, num_samples=8)
         for vp in vis_paths:
             mlflow.log_artifact(vp, artifact_path="visualisations")
 
-        # --- final test evaluation ---
         test_loss, test_metrics = validate_one_epoch(
             model, test_loader, criterion, metrics, device
         )
@@ -233,9 +218,8 @@ def run_training(
 
 
 # ---------------------------------------------------------------------------
-# Context manager shim so "with _noop():" works when caller owns the run
+# Context manager shim
 # ---------------------------------------------------------------------------
-from contextlib import contextmanager
 
 @contextmanager
 def _noop():
@@ -248,17 +232,25 @@ def _noop():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train UNet / SegNet on chest X-rays")
-    parser.add_argument("--config", default="training/configs/base.yaml")
-    parser.add_argument("--arch", default="unet", choices=["unet", "segnet", "all"])
-    parser.add_argument("--images-dir", default=None,
-                        help="Override config paths.data_dir/images")
-    parser.add_argument("--masks-dir", default=None,
-                        help="Override config paths.data_dir/masks")
-    # SageMaker passes hyperparameters as CLI args too
-    parser.add_argument("--epochs", type=int,   default=None)
-    parser.add_argument("--batch-size", type=int,   default=None)
-    parser.add_argument("--lr", type=float, default=None)
-    return parser.parse_args()
+    parser.add_argument("--config",     default="training/configs/base.yaml")
+    parser.add_argument("--arch",       default=None)   # no choices — avoids rejection of valid values
+    parser.add_argument("--images-dir", default=None)
+    parser.add_argument("--masks-dir",  default=None)
+    parser.add_argument("--epochs",     type=str, default=None)
+    parser.add_argument("--batch-size", type=str, default=None)
+    parser.add_argument("--lr",         type=str, default=None)
+
+    # parse_known_args ignores unknown tokens like "train" and "serve"
+    # that SageMaker appends when invoking the container entrypoint
+    args, unknown = parser.parse_known_args()
+
+    print(f"DEBUG args.arch    = {args.arch}", flush=True)
+    print(f"DEBUG unknown args = {unknown}",   flush=True)
+    print(f"DEBUG SM_HP_ARCH   = {os.environ.get('SM_HP_ARCH')}", flush=True)
+    print(f"DEBUG MODEL_ARCH   = {os.environ.get('MODEL_ARCH')}", flush=True)
+    print(f"DEBUG all SM_HP    = {[(k,v) for k,v in os.environ.items() if k.startswith('SM_HP')]}", flush=True)
+
+    return args
 
 
 def main():
@@ -267,33 +259,33 @@ def main():
     with open(args.config) as f:
         config = yaml.safe_load(f)
 
-    # SageMaker-style CLI overrides
     if args.epochs:
-        config["training"]["epochs"] = args.epochs
+        config["training"]["epochs"] = int(args.epochs)
     if args.batch_size:
-        config["training"]["batch_size"] = args.batch_size
+        config["training"]["batch_size"] = int(args.batch_size)
     if args.lr:
-        config["training"]["learning_rate"] = args.lr
+        config["training"]["learning_rate"] = float(args.lr)
 
-    # Data paths: CLI > env var (SageMaker) > config
+    # arch resolution: CLI arg → SM_HP_ARCH env var → MODEL_ARCH env var → default "unet"
+    arch = args.arch or os.environ.get("SM_HP_ARCH") or os.environ.get("MODEL_ARCH") or "unet"
+    print(f"DEBUG resolved arch = {arch}", flush=True)
+
     data_root  = config["paths"]["data_dir"]
     images_dir = args.images_dir or os.environ.get("SM_CHANNEL_TRAINING",
                     os.path.join(data_root, "images"))
     masks_dir  = args.masks_dir  or os.path.join(
                     os.path.dirname(images_dir), "masks")
 
-    # MLflow setup — use S3 artifact store, local SQLite tracking
-    mlflow_cfg      = config.get("mlflow", {})
+    mlflow_cfg        = config.get("mlflow", {})
     artifact_location = mlflow_cfg.get("artifact_location", "")
     if artifact_location:
         mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
-    archs = config["model"]["architectures"] if args.arch == "all" else [args.arch]
+    archs = config["model"]["architectures"] if arch == "all" else [arch]
 
-    for arch in archs:
-        run_training(config, arch, images_dir, masks_dir)
+    for a in archs:
+        run_training(config, a, images_dir, masks_dir)
 
-    # If running inside SageMaker, copy mlflow.db to output dir so it's preserved
     if os.path.exists("mlflow.db"):
         if os.path.exists("/opt/ml/output"):
             shutil.copy("mlflow.db", "/opt/ml/output/mlflow.db")

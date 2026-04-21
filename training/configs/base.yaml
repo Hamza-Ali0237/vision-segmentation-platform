@@ -18,7 +18,7 @@ model:
   num_classes: 1
 
 training:
-  epochs: 50
+  epochs: 15
   batch_size: 8
   learning_rate: 1e-4
   weight_decay: 1e-4
@@ -41,10 +41,10 @@ mlflow:
   # The tracking URI uses a local SQLite file that gets synced to S3 at end of job.
   # Set MLFLOW_TRACKING_URI env var to override (e.g. for a remote server later).
   experiment_name: "cxr-segmentation"
-  artifact_location: "s3://YOUR_BUCKET_NAME/mlflow-artifacts"
+  artifact_location: "s3://cxr-segmentation-humza/mlflow-artifacts"
 
 optuna:
-  n_trials: 20
+  n_trials: 5
   direction: "minimize"   # minimise val_loss
   pruning: true
   search_space:
@@ -57,10 +57,10 @@ optuna:
 
 aws:
   region: "us-east-1"
-  bucket: "YOUR_BUCKET_NAME"
+  bucket: "cxr-segmentation-humza"   # create this bucket in S3 and paste the name here
   # IAM role ARN — paste yours here after creating it
-  role_arn: "arn:aws:iam::YOUR_ACCOUNT_ID:role/SageMakerExecutionRole"
+  role_arn: "arn:aws:iam::074521321812:role/SageMakerExecutionRole"
   instance_type: "ml.g4dn.xlarge"   # cheapest GPU on SageMaker
   instance_count: 1
   # ECR image — filled in after you push the Docker image
-  ecr_image_uri: "YOUR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/cxr-segmentation:latest"
+  ecr_image_uri: "074521321812.dkr.ecr.us-east-1.amazonaws.com/cxr-segmentation:latest"

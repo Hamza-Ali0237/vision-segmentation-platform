@@ -18,6 +18,7 @@ import json
 import os
 import yaml
 import boto3
+import botocore
 import sagemaker
 from sagemaker.model import Model
 
@@ -77,6 +78,19 @@ def main():
         },
         sagemaker_session=session,
     )
+
+    # Clean up any stale resources from previous failed attempts
+    try:
+        session.sagemaker_client.delete_endpoint(EndpointName=endpoint_name)
+        print(f"Deleted stale endpoint: {endpoint_name}")
+    except botocore.exceptions.ClientError:
+        pass
+
+    try:
+        session.sagemaker_client.delete_endpoint_config(EndpointConfigName=endpoint_name)
+        print(f"Deleted stale endpoint config: {endpoint_name}")
+    except botocore.exceptions.ClientError:
+        pass
 
     predictor = model.deploy(
         initial_instance_count=1,

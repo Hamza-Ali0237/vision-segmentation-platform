@@ -29,7 +29,7 @@ WORKDIR /opt/ml/code
 
 # Install Python dependencies first (cached layer)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout 300 -r requirements.txt
 
 # Copy the full source
 COPY . .
@@ -38,5 +38,6 @@ COPY . .
 # estimator(entry_point=...).  We set PYTHONPATH so package imports work.
 ENV PYTHONPATH=/opt/ml/code
 
-# Default entrypoint — SageMaker overrides this with the entry_point arg
-ENTRYPOINT ["python", "train.py"]
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

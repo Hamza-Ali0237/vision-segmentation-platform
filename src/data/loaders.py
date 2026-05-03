@@ -7,8 +7,6 @@ from sklearn.model_selection import train_test_split
 from src.data.dataset_class import SegmentationDataset
 from src.data.augmentation import get_transforms
 
-import os
-
 def get_loaders(config: dict, images_dir: str, masks_dir: str):
 
     all_images = set(os.listdir(images_dir))

@@ -244,12 +244,6 @@ def parse_args():
     # that SageMaker appends when invoking the container entrypoint
     args, unknown = parser.parse_known_args()
 
-    print(f"DEBUG args.arch    = {args.arch}", flush=True)
-    print(f"DEBUG unknown args = {unknown}",   flush=True)
-    print(f"DEBUG SM_HP_ARCH   = {os.environ.get('SM_HP_ARCH')}", flush=True)
-    print(f"DEBUG MODEL_ARCH   = {os.environ.get('MODEL_ARCH')}", flush=True)
-    print(f"DEBUG all SM_HP    = {[(k,v) for k,v in os.environ.items() if k.startswith('SM_HP')]}", flush=True)
-
     return args
 
 
@@ -268,7 +262,6 @@ def main():
 
     # arch resolution: CLI arg → SM_HP_ARCH env var → MODEL_ARCH env var → default "unet"
     arch = args.arch or os.environ.get("SM_HP_ARCH") or os.environ.get("MODEL_ARCH") or "unet"
-    print(f"DEBUG resolved arch = {arch}", flush=True)
 
     data_root  = config["paths"]["data_dir"]
     images_dir = args.images_dir or os.environ.get("SM_CHANNEL_TRAINING",

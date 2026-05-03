@@ -195,3 +195,4 @@ model_unet.tar.gz
 model_unet_extracted/best_unet.pth
 /outputs
 /.claude/worktrees/competent-albattani-a97d2b
+/model_segnet_extracted

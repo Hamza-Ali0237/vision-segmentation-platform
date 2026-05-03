@@ -1,6 +1,26 @@
 # Vision Segmentation Platform
 
-End-to-end binary segmentation of chest X-rays using UNet and SegNet, with MLflow experiment tracking, Optuna hyperparameter search, and AWS SageMaker training + deployment.
+End-to-end deep learning platform for medical image segmentation, built around TB chest X-ray detection. Covers the full lifecycle: training, experiment tracking, hyperparameter optimization, cloud deployment, and scalable inference.
+
+---
+
+## What This Does
+
+Trains semantic segmentation models on chest X-ray data to identify TB-affected 
+regions, then serves them as a production API. The platform is built to be 
+reproducible (every run is tracked) and deployable (containerized, AWS-ready) 
+rather than just a notebook.
+
+---
+
+## Tech Stack
+
+- **Modeling**: PyTorch
+- **Hyperparameter optimization**: Optuna
+- **Experiment tracking**: MLflow
+- **Serving**: FastAPI
+- **Cloud**: AWS
+- **Containerization**: Docker
 
 ---
 

@@ -165,7 +165,7 @@ pip install fastapi httpx python-multipart boto3
 
 The FastAPI app sits in front of the SageMaker endpoint and provides a clean REST interface.
 
-### Run locally (during frontend development)
+### Run locally
 
 ```bash
 pip install fastapi uvicorn python-multipart boto3
@@ -297,7 +297,7 @@ aws sagemaker delete-endpoint --endpoint-name cxr-seg-unet-endpoint --region us-
 
 ## Deploy FastAPI to EC2
 
-Once the SageMaker endpoint is live and the frontend is ready:
+Once the SageMaker endpoint is live:
 
 ```bash
 # Build and push FastAPI image
